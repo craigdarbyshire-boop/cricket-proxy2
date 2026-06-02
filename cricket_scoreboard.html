@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cricket Live Scoreboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gd:#0a3d1f;--gl:#28a84a;--g:#1a6e35;--cr:#f0ead8;
+  --bg:#070f09;--card:#0c1f10;--border:rgba(40,168,74,0.2);--border2:rgba(40,168,74,0.4);
+  --txt:rgba(255,255,255,0.85);--muted:rgba(255,255,255,0.45);
+  --gold:#e8b84b;--red:#e05252;--green:#5ecb82;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--txt);display:flex;flex-direction:column}
+
+header{height:56px;flex-shrink:0;background:var(--gd);border-bottom:2px solid var(--gl);display:flex;align-items:center;justify-content:space-between;padding:0 14px;gap:10px}
+.logo{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo-icon{font-size:20px;line-height:1}
+.logo-text{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--cr);line-height:1}
+.logo-sub{font-size:9px;color:var(--gl);letter-spacing:1px;text-transform:uppercase}
+.hclock{flex-shrink:0;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:3px 11px;text-align:center;min-width:105px}
+.ct{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--cr);line-height:1.15}
+.cd{font-size:9px;color:var(--muted)}
+.hcontrols{display:flex;align-items:center;gap:6px}
+.hbtn{font-family:'DM Sans',sans-serif;font-size:11px;border-radius:5px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;padding:4px 9px;cursor:pointer;transition:background .15s;white-space:nowrap}
+.hbtn:hover{background:rgba(255,255,255,.16)}
+.hbtn.go{background:var(--gl);border-color:var(--gl);font-weight:600}
+.hbtn.go:hover{background:#32c456}
+.pulse-wrap{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--cr);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot.live{background:var(--gl);animation:blink 1.4s ease-in-out infinite}
+.dot.loading{background:var(--gold);animation:blink .6s ease-in-out infinite}
+.dot.err{background:var(--red)}
+.dot.off{background:#555}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* SETUP */
+#setup{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:24px 16px;gap:14px}
+.scard{width:100%;max-width:680px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.scard h2{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--cr);margin-bottom:6px}
+.scard p{font-size:13px;color:rgba(255,255,255,.62);line-height:1.65;margin-bottom:10px}
+.scard label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px}
+.inp{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.18);border-radius:6px;color:var(--cr);padding:7px 10px}
+.inp:focus{outline:none;border-color:var(--gl)}
+.inp::placeholder{color:rgba(255,255,255,.25)}
+.match-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.match-row .inp{margin:0;flex:1}
+.rmbtn{font-size:11px;padding:4px 8px;border-radius:5px;border:1px solid rgba(220,80,80,.4);background:rgba(220,80,80,.15);color:#ff9090;cursor:pointer;flex-shrink:0}
+.rmbtn:hover{background:rgba(220,80,80,.3)}
+.tip{background:rgba(40,168,74,.07);border:1px solid rgba(40,168,74,.2);border-radius:7px;padding:10px 13px;font-size:12px;color:rgba(255,255,255,.62);line-height:1.75;margin-bottom:10px}
+.tip strong{color:var(--gl)}
+.tip code{font-size:10px;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px}
+.server-status{display:flex;align-items:center;gap:8px;font-size:12px;padding:8px 12px;border-radius:6px;border:1px solid var(--border2);background:rgba(0,0,0,.2)}
+.server-status.ok{border-color:rgba(40,168,74,.4);color:var(--green)}
+.server-status.bad{border-color:rgba(224,82,82,.4);color:var(--red)}
+.server-status.checking{color:var(--muted)}
+
+/* BOARD */
+#board{flex:1;overflow:hidden;display:none;flex-direction:column}
+#grid{flex:1;overflow-y:auto;padding:8px;display:grid;gap:8px;align-content:start}
+#grid.c1{grid-template-columns:1fr}
+#grid.c2{grid-template-columns:1fr 1fr}
+#grid.c3{grid-template-columns:1fr 1fr 1fr}
+
+/* MATCH CARD */
+.mcard{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.mcard-head{background:var(--gd);border-bottom:2px solid var(--gl);padding:6px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
+.mcard-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:var(--cr);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcard-meta{font-size:10px;color:var(--muted);flex-shrink:0}
+.live-badge{font-size:9px;font-weight:600;letter-spacing:1px;background:rgba(40,168,74,.2);color:var(--green);border:1px solid rgba(40,168,74,.35);border-radius:10px;padding:1px 7px;flex-shrink:0}
+.mcard-body{padding:10px 12px;flex:1;overflow-y:auto}
+
+/* INNINGS */
+.innings{margin-bottom:10px}
+.inn-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:5px;gap:8px;flex-wrap:wrap}
+.inn-team{font-size:13px;font-weight:600;color:#fff}
+.inn-score{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;color:var(--green);line-height:1}
+.inn-overs{font-size:10px;color:var(--muted);margin-left:3px}
+.inn-dec{font-size:10px;color:var(--gold);margin-left:3px}
+
+.bat-table,.bowl-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px}
+.bat-table th,.bowl-table th{color:var(--muted);font-weight:500;text-align:left;padding:2px 4px;border-bottom:1px solid var(--border);font-size:9px;text-transform:uppercase;letter-spacing:.4px}
+.bat-table th:not(:first-child),.bowl-table th:not(:first-child){text-align:right}
+.bat-table td,.bowl-table td{padding:3px 4px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--txt);vertical-align:top}
+.bat-table td:not(:first-child),.bowl-table td:not(:first-child){text-align:right;font-family:'DM Mono',monospace;font-size:10px}
+tr.batting td{color:#fff;font-weight:600}
+tr.batting td:first-child::after{content:' *';color:var(--green);font-size:9px}
+tr.out td{color:rgba(255,255,255,.4)}
+.dismissal{font-size:9px;color:var(--muted);display:block;line-height:1.3;margin-top:1px}
+tr.bowling td{color:#fff;font-weight:600}
+.fow{font-size:9px;color:var(--muted);margin-top:3px;line-height:1.5}
+.fow span{color:rgba(255,255,255,.4)}
+.divider{border:none;border-top:1px solid var(--border2);margin:8px 0}
+.result-banner{text-align:center;padding:7px;font-size:13px;font-weight:600;color:var(--gold);background:rgba(232,184,75,.08);border-radius:6px;margin-top:6px}
+.match-summary{background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;margin-bottom:10px;border:1px solid var(--border2)}
+.match-summary-teams{display:flex;align-items:stretch;gap:0}
+.team-block{flex:1;display:flex;flex-direction:column;gap:2px;padding:6px 10px}
+.team-block.batting-team{background:rgba(40,168,74,.08);border-radius:6px}
+.team-name-big{font-size:13px;font-weight:600;color:#fff;line-height:1.2}
+.team-score-big{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;color:var(--green);line-height:1}
+.team-overs-big{font-size:10px;color:var(--muted)}
+.team-yet{font-size:11px;color:var(--muted);font-style:italic;padding-top:4px}
+.vs-divider{display:flex;align-items:center;padding:0 8px;color:var(--muted);font-size:11px;font-weight:600;flex-shrink:0}
+.inn-label{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--gl);font-weight:600;margin-bottom:2px}
+.batting-now{font-size:9px;color:var(--green);font-style:italic}
+.bowl-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:6px 0 3px;font-weight:600}
+
+.loading-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px;color:var(--muted);font-size:12px}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--gl);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-card{padding:14px;font-size:12px;color:rgba(255,255,255,.55);line-height:1.65}
+.err-title{color:var(--red);font-weight:600;display:block;margin-bottom:6px;font-size:13px}
+
+/* TICKER */
+.ticker{height:32px;background:#040c06;display:flex;align-items:center;overflow:hidden;flex-shrink:0;border-top:1px solid var(--g)}
+.tlabel{background:var(--gl);color:#fff;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:0 11px;height:100%;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0}
+.tdot{width:5px;height:5px;border-radius:50%;background:#fff;animation:blink 1.5s ease-in-out infinite}
+.ttrack{overflow:hidden;flex:1;height:100%;position:relative}
+.tinner{display:flex;white-space:nowrap;position:absolute;top:50%;transform:translateY(-50%);animation:scroll 60s linear infinite}
+.tinner.fast{animation-duration:35s}
+.tmatch{display:inline-flex;align-items:center;gap:8px;padding:0 24px;font-size:11px;color:var(--cr);border-right:1px solid rgba(255,255,255,.08)}
+.tteams{font-weight:600}
+.tscore{color:var(--green);font-size:10px}
+.tstatus{color:var(--muted);font-size:9px;font-style:italic}
+.tbadge{font-size:8px;background:rgba(40,168,74,.25);padding:1px 4px;border-radius:3px;color:var(--green)}
+.tmsg{font-size:11px;color:var(--muted);padding:0 18px}
+@keyframes scroll{0%{transform:translateY(-50%) translateX(0)}100%{transform:translateY(-50%) translateX(-50%)}}
+
+/* GAME BROWSER */
+.game-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:6px;border:1px solid var(--border);margin-bottom:4px;cursor:default;background:rgba(0,0,0,.2)}
+.game-item:hover{background:rgba(40,168,74,.1);border-color:var(--border2)}
+.game-item.added{border-color:var(--gl);background:rgba(40,168,74,.08)}
+.game-teams{font-size:12px;font-weight:600;color:#fff;flex:1;min-width:0}
+.game-comp{font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.game-score{font-size:11px;color:var(--green);text-align:right;flex-shrink:0;font-family:'DM Mono',monospace}
+.game-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.4s ease-in-out infinite;flex-shrink:0}
+.game-add-btn{font-size:10px;padding:3px 9px;border-radius:4px;border:1px solid var(--gl);background:rgba(40,168,74,.15);color:var(--green);cursor:pointer;flex-shrink:0;white-space:nowrap}
+.game-add-btn:hover{background:rgba(40,168,74,.3)}
+.game-add-btn.done{border-color:var(--muted);color:var(--muted);background:transparent;cursor:default}
+.game-search{width:100%;font-family:'DM Sans',sans-serif;font-size:12px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);border-radius:5px;color:var(--cr);padding:5px 9px;margin-bottom:6px}
+.game-search:focus{outline:none;border-color:var(--gl)}
+.game-loading{font-size:12px;color:var(--muted);padding:12px;text-align:center}
+
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center}
+.mo.open{display:flex}
+.modal{background:#112218;border:1px solid var(--border2);border-radius:11px;padding:20px;width:440px;max-width:92vw;max-height:90vh;overflow-y:auto}
+.modal h2{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--cr);margin-bottom:10px}
+.modal p{font-size:12px;color:rgba(255,255,255,.7);margin-bottom:8px;line-height:1.65}
+.mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.modal hr{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
+.qb{display:inline-block;font-size:11px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);border-radius:4px;padding:2px 8px;margin:2px;cursor:pointer;color:var(--cr)}
+.qb:hover{background:rgba(255,255,255,.14)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">&#x1F3CF;</div>
+    <div>
+      <div class="logo-text">Cricket Live</div>
+      <div class="logo-sub">Local Scoreboard</div>
+    </div>
+  </div>
+  <div class="hclock">
+    <div class="ct" id="ct">00:00:00</div>
+    <div class="cd" id="cd">Mon 1 Jan</div>
+  </div>
+  <div class="hcontrols">
+    <div class="pulse-wrap">
+      <div class="dot off" id="statusdot"></div>
+      <span id="statuslbl">Checking server...</span>
+    </div>
+    <select id="colsel" onchange="setCols(this.value)" style="display:none;font-family:'DM Sans',sans-serif;font-size:11px;border-radius:5px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;padding:4px 8px;cursor:pointer">
+      <option value="1">1 col</option>
+      <option value="2" selected>2 cols</option>
+      <option value="3">3 cols</option>
+    </select>
+    <button class="hbtn" id="refreshbtn" onclick="refreshAll()" style="display:none">&#8634; <span id="cdlbl">30s</span></button>
+    <button class="hbtn" id="editbtn" onclick="showSetup()" style="display:none">&#8592; Edit</button>
+    <button class="hbtn" onclick="toggleFS()">&#x26F6; Full</button>
+    <button class="hbtn" onclick="document.getElementById('apim').classList.add('open')">&#9881; Pro API</button>
+  </div>
+</header>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="scard">
+    <h2>&#x1F3CF; Cricket Live Scoreboard</h2>
+    <p>This scoreboard reads live scores from Play-Cricket match pages via a cloud proxy. Full scoring — batting, bowling, fall of wickets — auto-updated every 30 seconds.</p>
+  </div>
+
+  <div class="scard">
+    <h2>&#x1F4CB; Match URLs</h2>
+    <p>Browse today's live games directly from Play-Cricket, or paste a URL manually.</p>
+    <button class="hbtn go" onclick="browseGames()" style="margin-bottom:12px;font-size:12px;padding:6px 14px">&#x1F50D; Browse Live Games Today</button>
+
+    <!-- GAME BROWSER -->
+    <div id="game-browser" style="display:none;margin-bottom:12px">
+      <div id="game-list-wrap" style="background:rgba(0,0,0,.25);border:1px solid var(--border2);border-radius:7px;max-height:280px;overflow-y:auto;padding:6px"></div>
+    </div>
+
+    <div class="tip" id="url-tip">
+      <strong>Or paste a URL manually:</strong><br>
+      Open <strong>live.nvplay.com/ecb</strong>, find your match, copy the URL from the address bar. It will look like:<br>
+      <code>https://live.nvplay.com/ecb/?tab=m_summary#m63058ade-...</code>
+    </div>
+    <div id="match-rows"></div>
+    <button class="hbtn" onclick="addRow()" style="padding:5px 11px;font-size:12px">+ Add URL manually</button>
+  </div>
+
+  <div class="scard">
+    <h2>&#x23F1; Refresh interval</h2>
+    <select id="intsel" class="inp" style="width:auto">
+      <option value="30" selected>Every 30 seconds</option>
+      <option value="60">Every 60 seconds</option>
+      <option value="120">Every 2 minutes</option>
+    </select>
+  </div>
+
+  <button class="hbtn go" style="font-size:14px;padding:10px 28px;border-radius:8px" onclick="launch()">&#x25B6;&nbsp; Launch Scoreboard</button>
+</div>
+
+<!-- BOARD -->
+<div id="board">
+  <div id="grid" class="c2"></div>
+</div>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="tlabel"><div class="tdot"></div>Pro Cricket</div>
+  <div class="ttrack"><div class="tinner" id="ticker"><span class="tmsg">Click &#9881; Pro API to add your free CricketData.org key for live professional scores</span></div></div>
+</div>
+
+<!-- Pro API Modal -->
+<div class="mo" id="apim">
+  <div class="modal">
+    <h2>&#9881; Pro Scores Setup</h2>
+    <p>Shows live professional cricket in the bottom ticker. Free from <strong>CricketData.org</strong> — 100 calls/day.</p>
+    <p><span class="qb" onclick="window.open('https://cricketdata.org/signup.aspx','_blank')">&#x1F449; Sign up free at CricketData.org</span></p>
+    <hr>
+    <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px">API Key</label>
+    <input class="inp" type="text" id="akey" placeholder="Paste your CricketData.org API key..." style="margin-bottom:0">
+    <div class="mbtns">
+      <button class="hbtn" onclick="document.getElementById('apim').classList.remove('open')">Cancel</button>
+      <button class="hbtn go" onclick="saveKey()">Save &amp; Load</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var matches = [];
+var refreshSecs = 30;
+var countdown = 30;
+var cdTimer = null;
+var serverOk = true;
+
+// ── CLOCK ──
+function tick(){
+  var n=new Date(),D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('ct').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(function(x){return String(x).padStart(2,'0')}).join(':');
+  document.getElementById('cd').textContent=D[n.getDay()]+' '+n.getDate()+' '+M[n.getMonth()];
+}
+setInterval(tick,1000);tick();
+
+function toggleFS(){
+  if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(function(){});
+  else document.exitFullscreen();
+}
+
+// ── PROXY ──
+var PROXY = 'https://cricket-proxy2.onrender.com';
+
+// ── SETUP ROWS ──
+var rowCount=0;
+// ── GAME BROWSER ──
+var allGames=[];
+function browseGames(){
+  var browser=document.getElementById('game-browser');
+  var wrap=document.getElementById('game-list-wrap');
+  browser.style.display='block';
+  wrap.innerHTML='<div class="game-loading"><div class="spinner" style="margin:0 auto 8px"></div>Loading today\'s games...</div>';
+
+  fetch(PROXY+'/matches')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      allGames=d.matches||[];
+      renderGameList(allGames);
+    })
+    .catch(function(e){
+      wrap.innerHTML='<div class="game-loading" style="color:var(--red)">Could not load games — is the proxy running?</div>';
+    });
+}
+
+function renderGameList(games){
+  var wrap=document.getElementById('game-list-wrap');
+  if(!games.length){
+    wrap.innerHTML='<div class="game-loading">No games found</div>';
+    return;
+  }
+  var html='<input class="game-search" placeholder="Search team, competition or venue..." oninput="filterGames(this.value)">';
+
+  // Group by section
+  var sections={live:[],fixture:[],result:[]};
+  games.forEach(function(m){sections[m.section||'fixture'].push(m);});
+
+  var sectionLabels={live:'&#9679; Live Now',fixture:'&#x23F0; Today\'s Fixtures',result:'&#10003; Recent Results'};
+  ['live','fixture','result'].forEach(function(sec){
+    if(!sections[sec].length) return;
+    html+='<div style="font-size:10px;font-weight:600;color:var(--gl);letter-spacing:1px;text-transform:uppercase;padding:6px 4px 4px">'+sectionLabels[sec]+'</div>';
+    sections[sec].forEach(function(m,i){
+      var idx=allGames.indexOf(m);
+      var teams=esc(m.team1)+' <span style="color:var(--muted)">vs</span> '+esc(m.team2);
+      var scores='';
+      if(m.score1||m.score2){
+        scores='<div style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--green);margin-top:2px">';
+        if(m.score1) scores+=esc(m.score1);
+        if(m.score1&&m.score2) scores+=' &nbsp;|&nbsp; ';
+        if(m.score2) scores+=esc(m.score2);
+        scores+='</div>';
+      }
+      var situation=m.situation&&m.section!=='result'?'<div style="font-size:9px;color:var(--gold);margin-top:1px">'+esc(m.situation)+'</div>':'';
+      var result=m.section==='result'&&m.situation?'<div style="font-size:9px;color:var(--gold);margin-top:1px">'+esc(m.situation)+'</div>':'';
+      var meta='<div style="font-size:10px;color:var(--muted);margin-top:1px">'+(m.competition?esc(m.competition):'')+(m.venue?' &bull; '+esc(m.venue):'')+(m.match_type?' &bull; '+esc(m.match_type):'')+'</div>';
+
+      html+='<div class="game-item" id="gi'+idx+'">';
+      if(m.is_live) html+='<div class="game-live-dot" style="flex-shrink:0"></div>';
+      html+='<div style="flex:1;min-width:0">';
+      html+='<div style="font-size:12px;font-weight:600;color:#fff">'+teams+'</div>';
+      html+=meta+scores+situation+result;
+      html+='</div>';
+      html+='<button class="game-add-btn" id="gadd'+idx+'" onclick="addGameFromBrowser('+idx+')">+ Add</button>';
+      html+='</div>';
+    });
+  });
+  wrap.innerHTML=html;
+}
+
+function filterGames(q){
+  var filtered=allGames.filter(function(m){
+    var s=(m.title+m.team1+m.team2+m.competition+m.venue).toLowerCase();
+    return s.indexOf(q.toLowerCase())!==-1;
+  });
+  renderGameList(filtered);
+}
+
+function addGameFromBrowser(idx){
+  var m=allGames[idx];
+  if(!m||!m.id) return;
+  var nvUrl='https://live.nvplay.com/ecb/?tab=m_summary#m'+m.id;
+  var label=m.team1&&m.team2?m.team1+' vs '+m.team2:m.title;
+  addRow(nvUrl,label);
+  var btn=document.getElementById('gadd'+idx);
+  if(btn){btn.textContent='&#10003; Added';btn.className='game-add-btn done';btn.disabled=true;}
+  // Scroll down to show the added row
+  document.getElementById('match-rows').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function addRow(url,label){
+  rowCount++;
+  var id='mr'+rowCount;
+  var div=document.createElement('div');
+  div.className='match-row';div.id=id;
+  div.innerHTML=
+    '<input class="inp" type="text" placeholder="https://live.nvplay.com/ecb/?tab=m_summary#m..." value="'+(url||'')+'">' +
+    '<input class="inp" type="text" placeholder="Label e.g. Altofts 1st XI" value="'+(label||'')+'" style="max-width:175px">' +
+    '<button class="rmbtn" onclick="document.getElementById(\''+id+'\').remove()">&#x2715;</button>';
+  document.getElementById('match-rows').appendChild(div);
+}
+addRow('','Altofts 1st XI');
+addRow('','Altofts 2nd XI');
+
+// ── LAUNCH ──
+function launch(){
+  matches=[];
+  document.querySelectorAll('.match-row').forEach(function(row){
+    var inputs=row.querySelectorAll('input');
+    var url=inputs[0].value.trim();
+    var label=inputs[1].value.trim();
+    if(url) matches.push({url:url,label:label||url});
+  });
+  if(!matches.length){alert('Please add at least one match — click Browse Live Games Today or add a URL manually');return;}
+  refreshSecs=parseInt(document.getElementById('intsel').value);
+
+  document.getElementById('setup').style.display='none';
+  document.getElementById('board').style.display='flex';
+  document.getElementById('colsel').style.display='';
+  document.getElementById('refreshbtn').style.display='';
+  document.getElementById('editbtn').style.display='';
+
+  buildCards();
+  fetchAll();
+  startCountdown();
+}
+
+function showSetup(){
+  clearInterval(cdTimer);
+  document.getElementById('board').style.display='none';
+  document.getElementById('setup').style.display='flex';
+  document.getElementById('colsel').style.display='none';
+  document.getElementById('refreshbtn').style.display='none';
+  document.getElementById('editbtn').style.display='none';
+}
+
+function setCols(v){document.getElementById('grid').className='c'+v;}
+
+// ── CARDS ──
+function buildCards(){
+  var grid=document.getElementById('grid');
+  grid.innerHTML='';
+  matches.forEach(function(m,i){
+    var card=document.createElement('div');
+    card.className='mcard';
+    card.innerHTML=
+      '<div class="mcard-head">'+
+        '<span class="mcard-title">'+esc(m.label)+'</span>'+
+        '<span class="mcard-meta" id="meta'+i+'"></span>'+
+      '</div>'+
+      '<div class="mcard-body" id="body'+i+'">'+
+        '<div class="loading-card"><div class="spinner"></div><span>Loading...</span></div>'+
+      '</div>';
+    grid.appendChild(card);
+  });
+}
+
+// ── FETCH ──
+function refreshAll(){
+  fetchAll();
+  countdown=refreshSecs;
+}
+
+function fetchAll(){
+  setStatus('loading','Updating...');
+  var done=0;
+  matches.forEach(function(m,i){
+    fetch(PROXY+'/score?url='+encodeURIComponent(m.url))
+      .then(function(r){
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      })
+      .then(function(data){
+        renderMatch(data,i);
+        done++;
+        if(done===matches.length) setStatus('live','Updated '+formatTime(new Date()));
+      })
+      .catch(function(e){
+        document.getElementById('body'+i).innerHTML=
+          '<div class="err-card"><span class="err-title">&#x26A0; Could not load score</span>'+
+          'Error: '+esc(String(e))+'<br><br>'+
+          'Proxy: <code style="font-size:10px">'+PROXY+'</code><br>'+
+          'URL: <code style="font-size:10px">'+esc(m.url.substring(0,80))+'</code></div>';
+        done++;
+        setStatus('err','Error loading scores');
+      });
+  });
+}
+
+// ── RENDER ──
+function renderMatch(data,i){
+  var bodyEl=document.getElementById('body'+i);
+  var metaEl=document.getElementById('meta'+i);
+
+  if(data.error && !data.innings.length){
+    bodyEl.innerHTML='<div class="err-card"><span class="err-title">&#x26A0; No data</span>'+esc(data.error)+'</div>';
+    metaEl.innerHTML='';
+    return;
+  }
+
+  if(data.is_live || data.status==='In Play' || data.status==='In Progress'){
+    metaEl.innerHTML='<span class="live-badge">&#9679; Live</span>';
+  } else {
+    metaEl.innerHTML='<span style="font-size:10px;color:var(--muted)">'+esc(data.status||'')+'</span>';
+  }
+
+  var html='';
+
+  // Competition / venue info
+  var info=[];
+  if(data.competition) info.push(esc(data.competition));
+  if(data.venue) info.push(esc(data.venue));
+  if(info.length) html+='<div style="font-size:10px;color:var(--muted);margin-bottom:8px">'+info.join(' &bull; ')+'</div>';
+
+  // Toss info
+  if(data.toss) html+='<div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-style:italic">'+esc(data.toss)+'</div>';
+
+  // ── MATCH SUMMARY: both teams + scores ──
+  // Use NV Play team1/team2 fields if available, otherwise fall back to innings data
+  var team1name = data.team1 || (data.innings && data.innings[0] ? data.innings[0].batting_team : 'Team 1');
+  var team2name = data.team2 || (data.innings && data.innings[1] ? data.innings[1].batting_team : 'Team 2');
+  var team1score = data.team1_score || (data.innings && data.innings[0] ? data.innings[0].score : '');
+  var team2score = data.team2_score || (data.innings && data.innings[1] ? data.innings[1].score : '');
+  var isLive = data.is_live || data.status==='In Play';
+
+  html+='<div class="match-summary">';
+  html+='<div class="match-summary-teams">';
+
+  // Team 1 block
+  var t1batting = isLive && data.team1_score && !data.team2_score;
+  html+='<div class="team-block'+(t1batting?' batting-team':'')+'">';
+  html+='<div class="team-name-big">'+esc(team1name)+'</div>';
+  if(team1score){
+    html+='<div class="team-score-big">'+esc(team1score)+'</div>';
+    var inn1overs = data.innings && data.innings[0] ? data.innings[0].overs : '';
+    if(inn1overs) html+='<div class="team-overs-big">('+esc(inn1overs)+' ov)</div>';
+  } else {
+    html+='<div class="team-yet">Yet to bat</div>';
+  }
+  if(t1batting) html+='<div class="batting-now">&#9673; Batting now</div>';
+  html+='</div>';
+
+  html+='<div class="vs-divider">vs</div>';
+
+  // Team 2 block
+  var t2batting = isLive && data.team2_score;
+  html+='<div class="team-block'+(t2batting?' batting-team':'')+'">';
+  html+='<div class="team-name-big">'+esc(team2name)+'</div>';
+  if(team2score){
+    html+='<div class="team-score-big">'+esc(team2score)+'</div>';
+    var inn2overs = data.innings && data.innings[1] ? data.innings[1].overs : '';
+    if(inn2overs) html+='<div class="team-overs-big">('+esc(inn2overs)+' ov)</div>';
+  } else {
+    html+='<div class="team-yet">Yet to bat</div>';
+  }
+  if(t2batting) html+='<div class="batting-now">&#9673; Batting now</div>';
+  html+='</div>';
+
+  html+='</div>'; // match-summary-teams
+
+  if(data.result){
+    html+='<div style="text-align:center;padding:6px 0 2px;font-size:12px;font-weight:600;color:var(--gold)">'+esc(data.result)+'</div>';
+  }
+  html+='</div>'; // match-summary
+
+  // ── DETAILED INNINGS ──
+  if(data.innings && data.innings.length){
+    data.innings.forEach(function(inn,idx){
+      if(idx>0) html+='<hr class="divider">';
+      html+=renderInnings(inn);
+    });
+  } else {
+    html+='<div class="err-card">Scorecard not yet available</div>';
+  }
+
+  bodyEl.innerHTML=html;
+}
+
+function renderInnings(inn){
+  var html='<div class="innings">';
+
+  // Compact team label above batting table
+  html+='<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:5px;gap:8px">';
+  html+='<div style="font-size:12px;font-weight:600;color:#fff">'+esc(inn.batting_team||'Unknown')+' — Batting</div>';
+  html+='<div>';
+  if(inn.score) html+='<span class="inn-score" style="font-size:18px">'+esc(inn.score)+'</span>';
+  if(inn.overs) html+='<span class="inn-overs"> ('+esc(inn.overs)+' ov)</span>';
+  if(inn.declared) html+='<span class="inn-dec"> dec</span>';
+  html+='</div></div>';
+
+  // Batting table
+  if(inn.batsmen && inn.batsmen.length){
+    html+='<table class="bat-table"><thead><tr><th>Batter</th><th>Dismissal</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr></thead><tbody>';
+    inn.batsmen.forEach(function(b){
+      var isBatting=b.status==='batting';
+      var isOut=b.status && b.status!=='batting' && b.status!=='not out';
+      html+='<tr class="'+(isBatting?'batting':isOut?'out':'')+'">';
+      html+='<td>'+esc(b.name||'-')+'</td>';
+      html+='<td style="font-size:9px;color:var(--muted);max-width:120px">'+(isOut?esc(b.status):isBatting?'<span style="color:var(--green)">batting</span>':'not out')+'</td>';
+      html+='<td>'+(b.runs!=null?b.runs:'-')+'</td>';
+      html+='<td>'+(b.balls!=null?b.balls:'-')+'</td>';
+      html+='<td>'+(b.fours!=null?b.fours:'-')+'</td>';
+      html+='<td>'+(b.sixes!=null?b.sixes:'-')+'</td>';
+      html+='<td>'+(b.sr||'-')+'</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+  }
+
+  if(inn.extras) html+='<div class="extras-row">Extras: '+esc(inn.extras)+'</div>';
+  if(inn.fall_of_wickets) html+='<div class="fow">FOW: <span>'+esc(inn.fall_of_wickets)+'</span></div>';
+
+  // Bowling table
+  if(inn.bowlers && inn.bowlers.length){
+    html+='<div class="bowl-label">Bowling</div>';
+    html+='<table class="bowl-table"><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr></thead><tbody>';
+    inn.bowlers.forEach(function(b){
+      html+='<tr>';
+      html+='<td>'+esc(b.name||'-')+'</td>';
+      html+='<td>'+(b.overs||'-')+'</td>';
+      html+='<td>'+(b.maidens!=null?b.maidens:'-')+'</td>';
+      html+='<td>'+(b.runs!=null?b.runs:'-')+'</td>';
+      html+='<td>'+(b.wickets!=null?b.wickets:'-')+'</td>';
+      html+='<td>'+(b.econ||'-')+'</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+  }
+
+  html+='</div>';
+  return html;
+}
+
+// ── COUNTDOWN ──
+function startCountdown(){
+  clearInterval(cdTimer);
+  countdown=refreshSecs;
+  cdTimer=setInterval(function(){
+    countdown--;
+    var lbl=document.getElementById('cdlbl');
+    if(lbl) lbl.textContent=countdown+'s';
+    if(countdown<=0){
+      countdown=refreshSecs;
+      fetchAll();
+    }
+  },1000);
+}
+
+// ── STATUS ──
+function setStatus(state,text){
+  var dot=document.getElementById('statusdot');
+  var lbl=document.getElementById('statuslbl');
+  dot.className='dot';
+  if(state==='loading') dot.classList.add('loading');
+  else if(state==='err') dot.classList.add('err');
+  else if(state==='live') dot.classList.add('live');
+  else dot.classList.add('off');
+  lbl.textContent=text;
+}
+
+function formatTime(d){
+  return [d.getHours(),d.getMinutes(),d.getSeconds()].map(function(x){return String(x).padStart(2,'0')}).join(':');
+}
+
+function esc(s){
+  if(!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── PRO TICKER ──
+var akey='';
+try{akey=localStorage.getItem('cak')||'';}catch(e){}
+
+function saveKey(){
+  akey=document.getElementById('akey').value.trim();
+  try{localStorage.setItem('cak',akey);}catch(e){}
+  document.getElementById('apim').classList.remove('open');
+  fetchProScores();
+}
+
+function fetchProScores(){
+  if(!akey){setTMsg('Click \u2699 Pro API to add your free CricketData.org key for live professional scores');return;}
+  fetch('https://api.cricapi.com/v1/currentMatches?apikey='+akey+'&offset=0')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.status!=='success'||!d.data||!d.data.length){setTMsg('No live professional matches right now');return;}
+      var h='';
+      d.data.forEach(function(m){
+        var sc='';
+        if(m.score&&m.score.length) sc=m.score.map(function(s){
+          return s.inning.replace(/ Inning \d/,'')+': '+s.r+'/'+s.w+' ('+s.o+' ov)';
+        }).join(' \u2022 ');
+        var st=(m.status||'').substring(0,55);
+        var mt=m.matchType?m.matchType.toUpperCase():'';
+        h+='<span class="tmatch"><span class="tteams">'+esc(m.name)+'</span>';
+        if(mt) h+='<span class="tbadge">'+mt+'</span>';
+        if(sc) h+='<span class="tscore">'+sc+'</span>';
+        if(st) h+='<span class="tstatus">'+st+'</span>';
+        h+='</span>';
+      });
+      var t=document.getElementById('ticker');
+      t.innerHTML=h+h;
+      t.className=d.data.length>6?'tinner fast':'tinner';
+    }).catch(function(){setTMsg('Could not load pro scores');});
+}
+
+function setTMsg(msg){
+  var t=document.getElementById('ticker');
+  t.innerHTML='<span class="tmsg">'+msg+'</span><span class="tmsg" style="padding-left:90px">'+msg+'</span>';
+  t.className='tinner';
+}
+
+document.getElementById('akey').value=akey;
+fetchProScores();
+setInterval(fetchProScores,120000);
+setStatus('live','Ready');
+</script>
+</body>
+</html>
